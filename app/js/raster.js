@@ -232,3 +232,104 @@ export function scaleBitmap(b, factor) {
   }
   return out;
 }
+
+// ---------- brushes, strokes, inks (Aseprite-style) ----------
+
+// Offsets of a brush of `size` with the given shape, anchored like stamp(): odd sizes centre on the origin.
+export function brushOffsets(size = 1, shape = 'square') {
+  const off = Math.floor((size - 1) / 2), out = [];
+  if (shape === 'circle' && size > 2) {
+    // classic pixel-art circles: 3 -> plus (5 px), 4 -> 12 px, 5 -> 21 px, 7 -> 37 px
+    const c = (size - 1) / 2, R = size / 2, thr = size % 2 ? (R - 0.5) ** 2 + (R - 0.5) * 0.5 : R * R - 0.5;
+    for (let j = 0; j < size; j++) for (let i = 0; i < size; i++) {
+      const dx = i - c, dy = j - c;
+      if (dx * dx + dy * dy <= thr) out.push([i - off, j - off]);
+    }
+    return out;
+  }
+  for (let j = 0; j < size; j++) for (let i = 0; i < size; i++) out.push([i - off, j - off]);
+  return out;
+}
+
+// Pixel-perfect: drops the middle pixel of L-shaped corners so freehand lines are 1px wide with no doubled corners.
+export function pixelPerfect(points) {
+  const out = [];
+  for (const p of points) {
+    if (!out.length || out[out.length - 1][0] !== p[0] || out[out.length - 1][1] !== p[1]) out.push(p);
+  }
+  let i = 1;
+  while (i < out.length - 1) {
+    const [ax, ay] = out[i - 1], [bx, by] = out[i], [cx, cy] = out[i + 1];
+    const ab = Math.abs(ax - bx) + Math.abs(ay - by), bc = Math.abs(bx - cx) + Math.abs(by - cy);
+    const diag = Math.abs(ax - cx) === 1 && Math.abs(ay - cy) === 1;
+    if (ab === 1 && bc === 1 && diag) out.splice(i, 1); else i++;
+  }
+  return out;
+}
+
+// Paints a pixel through an "ink". opacity 0..255.
+//  simple: replace; alpha: source-over blend; lockalpha: blend colour but keep the existing alpha (paints only where alpha > 0)
+//  shading: with `shading` = list of hex colours, a hit on colour i becomes i+1 (left button) or i-1 (right), no change otherwise.
+export function paintPixel(b, x, y, rgba, { ink = 'simple', opacity = 255, shading = null, direction = 1 } = {}) {
+  if (!inBounds(b, x, y)) return false;
+  const i = (y * b.width + x) * 4, d = b.data;
+  if (ink === 'shading') {
+    if (!shading?.length) return false;
+    const cur = rgbaToHex([d[i], d[i + 1], d[i + 2], 255]);
+    const idx = d[i + 3] === 0 ? -1 : shading.findIndex((h) => h.toLowerCase() === cur);
+    if (idx < 0) return false;
+    const next = shading[Math.max(0, Math.min(shading.length - 1, idx + direction))];
+    const c = hexToRgba(next); d[i] = c[0]; d[i + 1] = c[1]; d[i + 2] = c[2]; d[i + 3] = 255;
+    return true;
+  }
+  const sa = (rgba[3] / 255) * (opacity / 255);
+  if (ink === 'simple' && opacity >= 255) { d[i] = rgba[0]; d[i + 1] = rgba[1]; d[i + 2] = rgba[2]; d[i + 3] = rgba[3]; return true; }
+  if (ink === 'lockalpha') { if (d[i + 3] === 0) return false; const t = sa; for (let c = 0; c < 3; c++) d[i + c] = Math.round(rgba[c] * t + d[i + c] * (1 - t)); return true; }
+  if (rgba[3] === 0 && ink === 'simple') { d[i + 3] = 0; return true; } // eraser through simple ink
+  const da = d[i + 3] / 255, oa = sa + da * (1 - sa);
+  if (oa === 0) { d[i + 3] = 0; return true; }
+  for (let c = 0; c < 3; c++) d[i + c] = Math.round((rgba[c] * sa + d[i + c] * da * (1 - sa)) / oa);
+  d[i + 3] = Math.round(oa * 255);
+  return true;
+}
+
+// Stamps a brush through an ink, mirrored by `sym`. Returns the number of pixels touched.
+export function stampInk(b, x, y, rgba, { size = 1, shape = 'square', sym = null, ...inkOpts } = {}) {
+  const offs = brushOffsets(size, shape);
+  const targets = [[x, y]];
+  if (sym?.x) targets.push([b.width - 1 - x, y]);
+  if (sym?.y) targets.push([x, b.height - 1 - y]);
+  if (sym?.x && sym?.y) targets.push([b.width - 1 - x, b.height - 1 - y]);
+  let n = 0;
+  for (const [tx, ty] of targets) {
+    const mx = tx !== x, my = ty !== y, shift = size % 2 === 0 ? 1 : 0;
+    for (const [dx, dy] of offs) if (paintPixel(b, tx + (mx ? -dx - shift : dx), ty + (my ? -dy - shift : dy), rgba, inkOpts)) n++;
+  }
+  return n;
+}
+
+// Spray: `count` random pixels within `radius`, deterministic with a seed for tests.
+export function sprayPoints(x, y, radius, count, rnd = Math.random) {
+  const pts = [];
+  for (let i = 0; i < count; i++) {
+    const a = rnd() * Math.PI * 2, r = Math.sqrt(rnd()) * radius;
+    pts.push([Math.round(x + Math.cos(a) * r), Math.round(y + Math.sin(a) * r)]);
+  }
+  return pts;
+}
+
+// Linear gradient between two colours over the segment (x0,y0)-(x1,y1), applied to every pixel of `mask`
+// (or the whole bitmap). dither: 'none' | 'bayer' (4x4 ordered) for a pixel-art look.
+const BAYER4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+export function gradient(b, x0, y0, x1, y1, c0, c1, { dither = 'none', mask = null } = {}) {
+  const dx = x1 - x0, dy = y1 - y0, len2 = dx * dx + dy * dy || 1;
+  for (let y = 0; y < b.height; y++) for (let x = 0; x < b.width; x++) {
+    if (mask && !mask.data[y * b.width + x]) continue;
+    let t = ((x - x0) * dx + (y - y0) * dy) / len2;
+    t = Math.max(0, Math.min(1, t));
+    let rgba;
+    if (dither === 'bayer') { const th = (BAYER4[(y % 4) * 4 + (x % 4)] + 0.5) / 16; rgba = t > th ? c1 : c0; }
+    else rgba = c0.map((v, i) => Math.round(v + (c1[i] - v) * t));
+    setPixel(b, x, y, rgba);
+  }
+}

@@ -1,7 +1,7 @@
 {
   "name": "Pixel Editor",
   "short_name": "Pixels",
-  "description": "A small, fast pixel-art editor: layers, animation frames, palettes, symmetry, PNG / sprite sheet / GIF export. Works offline.",
+  "description": "A browser pixel-art editor in the spirit of Aseprite: 20 tools, selections, layers, frames and tags, palettes, effects, sprite sheet and GIF export. Works offline.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

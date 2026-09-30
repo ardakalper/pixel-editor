@@ -12,7 +12,7 @@ async function setup(page, theme = 'dark') {
   await page.reload();
   // paint a little character with the API-level tools (deterministic)
   await page.evaluate(() => {
-    const { R, M, state } = window.__px;
+    const { R, M, S, state } = window.__px;
     const doc = state.doc;
     const cel = M.getCel(doc, 0, doc.layers[0].id);
     const C = (h) => R.hexToRgba(h);
@@ -32,8 +32,9 @@ async function setup(page, theme = 'dark') {
     M.addFrame(doc, { duplicateOf: 0 });
     const f2 = M.getCel(doc, 1, doc.layers[0].id);
     R.stamp(f2, 12, 11, body, 2); R.stamp(f2, 20, 11, body, 2); // blink
-    state.layer = 1; state.sel = { x0: 9, y0: 0, x1: 22, y1: 5 };
-    window.__px.ui.tool = 'select';
+    M.addTag(doc, { name: 'idle', from: 0, to: 1, direction: 'pingpong', color: '#43d9e8' });
+    state.layer = 1; state.sel = S.maskFromRect(doc.width, doc.height, { x0: 9, y0: 0, x1: 22, y1: 5 });
+    window.__px.ui.tool = 'marquee';
   });
   await page.evaluate(() => { window.dispatchEvent(new Event('resize')); });
   await page.keyboard.press('m');

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Pixel Editor</title>
-  <meta name="description" content="A small, fast pixel-art editor: layers, animation frames, palettes, symmetry, PNG / sprite sheet / GIF export. Works offline.">
+  <meta name="description" content="A small, fast pixel-art editor: layers, animation frames and tags, palettes, symmetry, inks, effects, PNG / sprite sheet / GIF export. Works offline.">
   <meta name="color-scheme" content="dark light">
   <meta name="theme-color" content="#0d0a1f">
   <link rel="manifest" href="manifest.webmanifest">
@@ -21,15 +21,11 @@
 <body>
   <header class="top">
     <div class="brand"><svg viewBox="0 0 32 32" aria-hidden="true"><rect x="4" y="4" width="8" height="8" fill="#43d9e8"/><rect x="12" y="4" width="8" height="8" fill="#43c94f"/><rect x="20" y="4" width="8" height="8" fill="#f2c327"/><rect x="4" y="12" width="8" height="8" fill="#f0731c"/><rect x="12" y="12" width="8" height="8" fill="#f2ede2"/><rect x="20" y="12" width="8" height="8" fill="#dc2b1f"/><rect x="4" y="20" width="8" height="8" fill="#4f8df5"/><rect x="12" y="20" width="8" height="8" fill="#6a2bd9"/><rect x="20" y="20" width="8" height="8" fill="#ff7ad9"/></svg><span lang="en" data-i18n="app.name">Pixel Editor</span></div>
+    <nav class="menubar" id="menubar" aria-label="Menu"></nav>
     <input class="doc-name" id="doc-name" value="untitled" aria-label="Document name" spellcheck="false">
-    <div class="group">
-      <button class="tb" id="btn-new" data-i18n="file.new">New</button>
-      <button class="tb" id="btn-open" data-i18n="file.open">Open</button>
-      <input type="file" id="file-open" accept=".json,image/png,image/gif,image/webp,image/jpeg" hidden>
-      <button class="tb" id="btn-save" data-i18n="file.save">Save</button>
-      <button class="tb" id="btn-export" data-i18n="file.export">Export</button>
-      <button class="tb" id="btn-resize" data-i18n="file.resize">Resize</button>
-    </div>
+    <input type="file" id="file-open" accept=".json,image/png,image/gif,image/webp,image/jpeg" hidden>
+    <input type="file" id="file-sheet" accept="image/png,image/gif,image/webp,image/jpeg" hidden>
+    <input type="file" id="file-palette" accept=".gpl,.pal,.hex,.act,.txt,.css,image/png" hidden>
     <div class="group">
       <button class="tb icon" id="btn-undo" data-i18n-title="edit.undo">↶</button>
       <button class="tb icon" id="btn-redo" data-i18n-title="edit.redo">↷</button>
@@ -48,27 +44,55 @@
     <button class="tb icon" id="btn-settings" aria-label="Settings" title="Settings">⚙</button>
   </header>
 
-  <div class="work">
+  <!-- Context bar: options of the active tool (Aseprite-style) -->
+  <div class="ctx" id="ctx">
+    <label class="c" data-tools="pencil spray eraser line rect ellipse contour polygon blur"><span data-i18n="ctx.size">Size</span><input type="range" id="brush-size" min="1" max="32" value="1"><b class="mono" id="brush-size-label">1</b></label>
+    <label class="c" data-tools="pencil spray eraser line rect ellipse contour polygon blur"><span data-i18n="ctx.shape">Shape</span><select id="brush-shape"><option value="square" data-i18n="ctx.square">Square</option><option value="circle" data-i18n="ctx.circle">Circle</option></select></label>
+    <label class="c chk" data-tools="pencil"><input type="checkbox" id="opt-pp"><span data-i18n="ctx.pixelperfect">Pixel-perfect</span></label>
+    <label class="c" data-tools="pencil spray line rect ellipse contour polygon fill gradient"><span data-i18n="ctx.ink">Ink</span><select id="ink"><option value="simple" data-i18n="ink.simple">Simple</option><option value="alpha" data-i18n="ink.alpha">Alpha compositing</option><option value="lockalpha" data-i18n="ink.lockalpha">Lock alpha</option><option value="shading" data-i18n="ink.shading">Shading</option></select></label>
+    <label class="c" data-tools="pencil spray line rect ellipse contour polygon fill gradient eraser"><span data-i18n="ctx.opacity">Opacity</span><input type="range" id="ink-opacity" min="1" max="255" value="255"><b class="mono" id="ink-opacity-label">255</b></label>
+    <label class="c chk" data-tools="rect ellipse polygon"><input type="checkbox" id="opt-fill"><span data-i18n="ctx.filled">Filled</span></label>
+    <label class="c chk" data-tools="fill wand"><input type="checkbox" id="opt-contiguous" checked><span data-i18n="ctx.contiguous">Contiguous</span></label>
+    <label class="c" data-tools="fill wand"><span data-i18n="ctx.tolerance">Tolerance</span><input type="range" id="tolerance" min="0" max="255" value="0"><b class="mono" id="tolerance-label">0</b></label>
+    <label class="c" data-tools="gradient"><span data-i18n="ctx.dither">Dither</span><select id="dither"><option value="none" data-i18n="ctx.none">None</option><option value="bayer">Bayer 4×4</option></select></label>
+    <label class="c" data-tools="spray"><span data-i18n="ctx.width">Width</span><input type="range" id="spray-width" min="1" max="32" value="6"><b class="mono" id="spray-width-label">6</b></label>
+    <label class="c" data-tools="spray"><span data-i18n="ctx.speed">Speed</span><input type="range" id="spray-speed" min="1" max="50" value="10"><b class="mono" id="spray-speed-label">10</b></label>
+    <label class="c" data-tools="marquee ellipsemarquee lasso polylasso wand"><span data-i18n="ctx.selmode">Mode</span><select id="sel-mode"><option value="replace" data-i18n="sel.replace">Replace</option><option value="add" data-i18n="sel.add">Add</option><option value="subtract" data-i18n="sel.subtract">Subtract</option><option value="intersect" data-i18n="sel.intersect">Intersect</option></select></label>
+    <span class="c hint" id="ctx-hint"></span>
+  </div>
+
+  <div class="work" id="work">
     <aside class="tools" id="tools">
-      <button class="tool" data-tool="pencil" aria-pressed="true" data-i18n-title="tool.pencil"><svg viewBox="0 0 24 24"><path d="M3 21l4-1 11-11-3-3L4 17z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M14 6l3 3" stroke="currentColor" stroke-width="2"/></svg></button>
-      <button class="tool" data-tool="eraser" data-i18n-title="tool.eraser"><svg viewBox="0 0 24 24"><path d="M4 16l8-8 6 6-5 5H8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M8 20h12" stroke="currentColor" stroke-width="2"/></svg></button>
-      <button class="tool" data-tool="fill" data-i18n-title="tool.fill"><svg viewBox="0 0 24 24"><path d="M5 12l7-7 7 7-7 7z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M19 15c0 2 1.5 3 1.5 4a1.5 1.5 0 0 1-3 0c0-1 1.5-2 1.5-4z" fill="currentColor"/></svg></button>
-      <button class="tool" data-tool="line" data-i18n-title="tool.line"><svg viewBox="0 0 24 24"><path d="M4 20L20 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
-      <button class="tool" data-tool="rect" data-i18n-title="tool.rect"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" fill="none" stroke="currentColor" stroke-width="2"/></svg></button>
-      <button class="tool" data-tool="ellipse" data-i18n-title="tool.ellipse"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="8" ry="6" fill="none" stroke="currentColor" stroke-width="2"/></svg></button>
-      <button class="tool" data-tool="picker" data-i18n-title="tool.picker"><svg viewBox="0 0 24 24"><path d="M4 20l1-4 9-9 3 3-9 9z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M13 6l2-2 5 5-2 2" fill="none" stroke="currentColor" stroke-width="2"/></svg></button>
-      <button class="tool" data-tool="select" data-i18n-title="tool.select"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="3 2"/></svg></button>
-      <button class="tool" data-tool="pan" data-i18n-title="tool.pan"><svg viewBox="0 0 24 24"><path d="M8 12V6a1.5 1.5 0 0 1 3 0v5m0-6a1.5 1.5 0 0 1 3 0v6m0-5a1.5 1.5 0 0 1 3 0v8a6 6 0 0 1-12 0v-3l-2-3a1.6 1.6 0 0 1 2.6-1.8L8 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></button>
-      <label class="opt"><span data-i18n="tool.size">Size</span><input type="range" id="brush-size" min="1" max="8" value="1"><b id="brush-size-label" class="mono">1</b></label>
-      <label class="opt check"><input type="checkbox" id="opt-fill"><span data-i18n="tool.filled">Filled shapes</span></label>
-      <label class="opt check"><input type="checkbox" id="opt-global"><span data-i18n="tool.global">Fill everywhere</span></label>
+      <div class="tool-grid">
+        <button class="tool" data-tool="marquee" aria-pressed="true" data-i18n-title="tool.marquee"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="3 2"/></svg></button>
+        <button class="tool" data-tool="ellipsemarquee" data-i18n-title="tool.ellipsemarquee"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="8" ry="6" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="3 2"/></svg></button>
+        <button class="tool" data-tool="lasso" data-i18n-title="tool.lasso"><svg viewBox="0 0 24 24"><path d="M6 8c0-3 12-3 12 0s-3 4-6 5-6 3-6 5 2 2 3 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-dasharray="3 2"/></svg></button>
+        <button class="tool" data-tool="polylasso" data-i18n-title="tool.polylasso"><svg viewBox="0 0 24 24"><path d="M5 9l8-5 6 6-3 9-10 1z" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="3 2"/></svg></button>
+        <button class="tool" data-tool="wand" data-i18n-title="tool.wand"><svg viewBox="0 0 24 24"><path d="M4 20L14 10" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><path d="M15 3v3M18.5 4.5l-2 2M21 8h-3M12 4.5l2 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+        <button class="tool" data-tool="pencil" data-i18n-title="tool.pencil"><svg viewBox="0 0 24 24"><path d="M3 21l4-1 11-11-3-3L4 17z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M14 6l3 3" stroke="currentColor" stroke-width="2"/></svg></button>
+        <button class="tool" data-tool="spray" data-i18n-title="tool.spray"><svg viewBox="0 0 24 24"><path d="M8 10h8v10H8z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M11 10V6h2v4" stroke="currentColor" stroke-width="2"/><circle cx="6" cy="4" r="1" fill="currentColor"/><circle cx="18" cy="4" r="1" fill="currentColor"/><circle cx="12" cy="2.5" r="1" fill="currentColor"/><circle cx="8" cy="7" r="1" fill="currentColor"/><circle cx="16" cy="7" r="1" fill="currentColor"/></svg></button>
+        <button class="tool" data-tool="eraser" data-i18n-title="tool.eraser"><svg viewBox="0 0 24 24"><path d="M4 16l8-8 6 6-5 5H8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M8 20h12" stroke="currentColor" stroke-width="2"/></svg></button>
+        <button class="tool" data-tool="picker" data-i18n-title="tool.picker"><svg viewBox="0 0 24 24"><path d="M4 20l1-4 9-9 3 3-9 9z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M13 6l2-2 5 5-2 2" fill="none" stroke="currentColor" stroke-width="2"/></svg></button>
+        <button class="tool" data-tool="pan" data-i18n-title="tool.pan"><svg viewBox="0 0 24 24"><path d="M8 12V6a1.5 1.5 0 0 1 3 0v5m0-6a1.5 1.5 0 0 1 3 0v6m0-5a1.5 1.5 0 0 1 3 0v8a6 6 0 0 1-12 0v-3l-2-3a1.6 1.6 0 0 1 2.6-1.8L8 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></button>
+        <button class="tool" data-tool="move" data-i18n-title="tool.move"><svg viewBox="0 0 24 24"><path d="M12 2v20M2 12h20M12 2l-3 3M12 2l3 3M12 22l-3-3M12 22l3-3M2 12l3-3M2 12l3 3M22 12l-3-3M22 12l-3 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+        <button class="tool" data-tool="zoom" data-i18n-title="tool.zoom"><svg viewBox="0 0 24 24"><circle cx="10" cy="10" r="6" fill="none" stroke="currentColor" stroke-width="2"/><path d="M15 15l6 6M7 10h6M10 7v6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+        <button class="tool" data-tool="fill" data-i18n-title="tool.fill"><svg viewBox="0 0 24 24"><path d="M5 12l7-7 7 7-7 7z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M19 15c0 2 1.5 3 1.5 4a1.5 1.5 0 0 1-3 0c0-1 1.5-2 1.5-4z" fill="currentColor"/></svg></button>
+        <button class="tool" data-tool="gradient" data-i18n-title="tool.gradient"><svg viewBox="0 0 24 24"><defs><linearGradient id="gg" x1="0" x2="1"><stop offset="0" stop-color="currentColor"/><stop offset="1" stop-color="currentColor" stop-opacity="0"/></linearGradient></defs><rect x="4" y="5" width="16" height="14" fill="url(#gg)" stroke="currentColor" stroke-width="2"/></svg></button>
+        <button class="tool" data-tool="line" data-i18n-title="tool.line"><svg viewBox="0 0 24 24"><path d="M4 20L20 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+        <button class="tool" data-tool="rect" data-i18n-title="tool.rect"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" fill="none" stroke="currentColor" stroke-width="2"/></svg></button>
+        <button class="tool" data-tool="ellipse" data-i18n-title="tool.ellipse"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="8" ry="6" fill="none" stroke="currentColor" stroke-width="2"/></svg></button>
+        <button class="tool" data-tool="contour" data-i18n-title="tool.contour"><svg viewBox="0 0 24 24"><path d="M5 12c0-5 5-8 9-7s6 5 4 9-7 6-10 3-3-1-3-5z" fill="none" stroke="currentColor" stroke-width="2"/></svg></button>
+        <button class="tool" data-tool="polygon" data-i18n-title="tool.polygon"><svg viewBox="0 0 24 24"><path d="M12 3l9 7-3 10H6L3 10z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></button>
+        <button class="tool" data-tool="blur" data-i18n-title="tool.blur"><svg viewBox="0 0 24 24"><path d="M12 3c4 5 6 8 6 11a6 6 0 0 1-12 0c0-3 2-6 6-11z" fill="none" stroke="currentColor" stroke-width="2"/></svg></button>
+      </div>
     </aside>
 
-    <main class="viewport" id="viewport">
+    <main class="viewport" id="viewport" tabindex="0">
       <div class="stage" id="stage">
         <canvas id="canvas" width="32" height="32"></canvas>
         <canvas id="overlay"></canvas>
       </div>
+      <div class="preview" id="preview" hidden><canvas id="preview-canvas"></canvas></div>
     </main>
 
     <aside class="side">
@@ -79,9 +103,17 @@
           <button class="swatch secondary" id="swatch-secondary" data-i18n-title="color.secondary"></button>
           <button class="tb icon" id="btn-swap" data-i18n-title="color.swap">⇄</button>
           <input type="color" id="color-input" value="#f2ede2" aria-label="Color">
-          <button class="tb icon" id="btn-add-color" data-i18n-title="color.add">+</button>
+          <input class="hex mono" id="color-hex" value="#f2ede2" maxlength="9" aria-label="Hex" spellcheck="false">
         </div>
-        <select id="palette-select" aria-label="Palette"></select>
+        <div class="hsv">
+          <label><span>H</span><input type="range" id="hsv-h" min="0" max="360" value="0"></label>
+          <label><span>S</span><input type="range" id="hsv-s" min="0" max="100" value="0"></label>
+          <label><span>V</span><input type="range" id="hsv-v" min="0" max="100" value="100"></label>
+        </div>
+        <div class="row-btns">
+          <select id="palette-select" aria-label="Palette"></select>
+          <button class="tb icon" id="btn-palette-menu" data-i18n-title="palette.more">⋯</button>
+        </div>
         <div class="palette" id="palette"></div>
       </section>
       <section class="panel">
@@ -115,17 +147,25 @@
       <button class="tb icon" id="btn-frame-left" data-i18n-title="frames.left">←</button>
       <button class="tb icon" id="btn-frame-right" data-i18n-title="frames.right">→</button>
       <button class="tb icon danger" id="btn-frame-del" data-i18n-title="frames.del">✕</button>
+      <button class="tb icon" id="btn-tag-add" data-i18n-title="tags.new">🏷</button>
     </div>
-    <div class="frames" id="frames"></div>
+    <div class="frames-wrap">
+      <div class="tags" id="tags"></div>
+      <div class="frames" id="frames"></div>
+    </div>
   </footer>
 
   <div class="status">
     <span class="mono" id="status-pos">0, 0</span>
     <span class="mono" id="status-size">32 × 32</span>
+    <span class="mono" id="status-frame">1/1</span>
+    <span class="mono" id="status-sel"></span>
     <span id="status-hint" data-i18n="status.hint"></span>
     <span id="toast" class="toast" hidden></span>
     <button class="link" id="btn-install" hidden data-i18n="install">Install as an app</button>
   </div>
+
+  <div class="menu-popup" id="menu-popup" hidden></div>
 
   <dialog id="dlg-new" class="dlg"><form method="dialog" class="dlg-body">
     <h2 data-i18n="new.title">New image</h2>
@@ -136,21 +176,53 @@
   </form></dialog>
 
   <dialog id="dlg-resize" class="dlg"><form method="dialog" class="dlg-body">
-    <h2 data-i18n="resize.title">Resize canvas</h2>
+    <h2 data-i18n="resize.title">Canvas size</h2>
     <label class="row"><span data-i18n="new.width">Width</span><input type="number" id="resize-w" min="1" max="512" class="mono"></label>
     <label class="row"><span data-i18n="new.height">Height</span><input type="number" id="resize-h" min="1" max="512" class="mono"></label>
     <label class="row"><span data-i18n="resize.anchor">Anchor</span><select id="resize-anchor"></select></label>
-    <div class="dlg-actions"><button value="cancel" class="tb" data-i18n="btn.cancel">Cancel</button><button value="ok" id="resize-ok" class="tb primary" data-i18n="resize.ok">Resize</button></div>
+    <div class="dlg-actions"><button value="cancel" class="tb" data-i18n="btn.cancel">Cancel</button><button value="ok" id="resize-ok" class="tb primary" data-i18n="btn.ok">OK</button></div>
   </form></dialog>
 
   <dialog id="dlg-export" class="dlg"><form method="dialog" class="dlg-body">
     <h2 data-i18n="export.title">Export</h2>
     <label class="row radio"><input type="radio" name="export-type" value="png" checked><span data-i18n="export.png">PNG</span></label>
-    <label class="row radio"><input type="radio" name="export-type" value="sheet"><span data-i18n="export.sheet">Sprite sheet</span></label>
     <label class="row radio"><input type="radio" name="export-type" value="gif"><span data-i18n="export.gif">GIF</span></label>
     <label class="row radio"><input type="radio" name="export-type" value="json"><span data-i18n="export.json">Project</span></label>
     <label class="row"><span data-i18n="export.scale">Scale</span><select id="export-scale"><option>1</option><option selected>2</option><option>4</option><option>8</option><option>16</option></select></label>
     <div class="dlg-actions"><button value="cancel" class="tb" data-i18n="btn.cancel">Cancel</button><button value="ok" id="export-ok" class="tb primary" data-i18n="export.ok">Download</button></div>
+  </form></dialog>
+
+  <dialog id="dlg-sheet" class="dlg"><form method="dialog" class="dlg-body">
+    <h2 data-i18n="sheet.title">Export sprite sheet</h2>
+    <label class="row"><span data-i18n="sheet.layout">Layout</span><select id="sheet-layout"><option value="horizontal" data-i18n="sheet.horizontal">Horizontal strip</option><option value="vertical" data-i18n="sheet.vertical">Vertical strip</option><option value="rows" data-i18n="sheet.rows">By rows</option><option value="columns" data-i18n="sheet.columns">By columns</option></select></label>
+    <label class="row"><span data-i18n="sheet.count">Columns / rows</span><input type="number" id="sheet-count" min="0" max="64" value="0" class="mono"></label>
+    <label class="row"><span data-i18n="sheet.padding">Padding</span><input type="number" id="sheet-padding" min="0" max="64" value="0" class="mono"></label>
+    <label class="row"><span data-i18n="sheet.border">Border</span><input type="number" id="sheet-border" min="0" max="64" value="0" class="mono"></label>
+    <label class="row"><span data-i18n="sheet.trim">Trim cels</span><input type="checkbox" id="sheet-trim"></label>
+    <label class="row"><span data-i18n="export.scale">Scale</span><select id="sheet-scale"><option selected>1</option><option>2</option><option>4</option><option>8</option></select></label>
+    <label class="row"><span data-i18n="sheet.json">JSON data</span><select id="sheet-json"><option value="hash" data-i18n="sheet.hash">Hash</option><option value="array" data-i18n="sheet.array">Array</option><option value="none" data-i18n="ctx.none">None</option></select></label>
+    <div class="dlg-actions"><button value="cancel" class="tb" data-i18n="btn.cancel">Cancel</button><button value="ok" id="sheet-ok" class="tb primary" data-i18n="export.ok">Download</button></div>
+  </form></dialog>
+
+  <dialog id="dlg-import" class="dlg"><form method="dialog" class="dlg-body">
+    <h2 data-i18n="import.title">Import sprite sheet</h2>
+    <label class="row"><span data-i18n="import.cellw">Cell width</span><input type="number" id="import-w" min="1" max="512" value="32" class="mono"></label>
+    <label class="row"><span data-i18n="import.cellh">Cell height</span><input type="number" id="import-h" min="1" max="512" value="32" class="mono"></label>
+    <label class="row"><span data-i18n="sheet.padding">Padding</span><input type="number" id="import-padding" min="0" max="64" value="0" class="mono"></label>
+    <label class="row"><span data-i18n="sheet.border">Border</span><input type="number" id="import-border" min="0" max="64" value="0" class="mono"></label>
+    <div class="dlg-actions"><button value="cancel" class="tb" data-i18n="btn.cancel">Cancel</button><button value="ok" id="import-ok" class="tb primary" data-i18n="btn.ok">OK</button></div>
+  </form></dialog>
+
+  <dialog id="dlg-fx" class="dlg"><form method="dialog" class="dlg-body">
+    <h2 id="fx-title"></h2>
+    <div id="fx-controls"></div>
+    <div class="dlg-actions"><button value="cancel" class="tb" data-i18n="btn.cancel">Cancel</button><button value="ok" id="fx-ok" class="tb primary" data-i18n="btn.ok">OK</button></div>
+  </form></dialog>
+
+  <dialog id="dlg-form" class="dlg"><form method="dialog" class="dlg-body">
+    <h2 id="form-title"></h2>
+    <div id="form-controls"></div>
+    <div class="dlg-actions"><button value="cancel" class="tb" data-i18n="btn.cancel">Cancel</button><button value="ok" id="form-ok" class="tb primary" data-i18n="btn.ok">OK</button></div>
   </form></dialog>
 
   <dialog id="dlg-settings" class="dlg"><form method="dialog" class="dlg-body">

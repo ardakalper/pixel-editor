@@ -1,9 +1,9 @@
 // App-shell cache. Bump VERSION on every release so clients pick up new files.
-const VERSION = 'v1.0.0';
+const VERSION = 'v2.0.0';
 const CACHE = `pixel-editor-${VERSION}`;
 const SHELL = [
   './', './index.html', './manifest.webmanifest', './css/app.css',
-  './js/main.js', './js/raster.js', './js/model.js', './js/history.js', './js/gif.js', './js/palettes.js', './js/i18n.js', './js/store.js',
+  './js/main.js', './js/raster.js', './js/select.js', './js/fx.js', './js/palette-io.js', './js/sheet.js', './js/model.js', './js/history.js', './js/gif.js', './js/palettes.js', './js/i18n.js', './js/store.js',
   './fonts/barlow-condensed-500.woff2', './fonts/barlow-condensed-600.woff2', './fonts/share-tech-mono.woff2',
   './fonts/ibm-plex-sans-400.woff2', './fonts/ibm-plex-sans-600.woff2', './fonts/righteous.woff2',
   './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png',
