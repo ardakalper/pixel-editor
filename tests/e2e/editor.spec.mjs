@@ -258,6 +258,8 @@ test('outline effect dialog previews and applies', async ({ page }) => {
   await expect(page.locator('#dlg-fx')).toBeVisible();
   await page.locator('#fx-controls input[data-key="color"]').fill('#ff004d');
   await page.locator('#fx-ok').click();
+  await expect(page.locator('#dlg-fx')).toBeHidden();
+  await page.evaluate(() => new Promise((r) => setTimeout(r, 0))); // let the queued dialog close event commit the change
   expect(await pixel(page, 10, 10)).toEqual(CREAM);
   expect(await pixel(page, 9, 10)).toEqual(RED);
   expect(await pixel(page, 10, 11)).toEqual(RED);
