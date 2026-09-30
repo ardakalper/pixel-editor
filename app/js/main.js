@@ -341,8 +341,17 @@ function commitFloating(keep = true) {
 }
 function selectionOrAll() { return state.sel ?? S.createMask(W(), H(), 1); }
 function paintMasked(mask, rgba, button = 0) {
-  const cel = activeCel();
-  for (let y = 0; y < H(); y++) for (let x = 0; x < W(); x++) if (mask.data[y * W() + x]) R.paintPixel(cel, x, y, rgba, inkOpts(button));
+  const cel = activeCel(), sel = state.sel;
+  for (let y = 0; y < H(); y++) for (let x = 0; x < W(); x++) if (mask.data[y * W() + x] && (!sel || sel.data[y * W() + x])) R.paintPixel(cel, x, y, rgba, inkOpts(button));
+}
+// run a paint step and keep every pixel outside the selection untouched
+function clippedToSel(fn) {
+  const sel = state.sel;
+  if (!sel) { fn(); return; }
+  const cel = activeCel(), before = R.cloneBitmap(cel);
+  fn();
+  const n = W() * H();
+  for (let i = 0; i < n; i++) if (!sel.data[i]) { const o = i * 4; cel.data[o] = before.data[o]; cel.data[o + 1] = before.data[o + 1]; cel.data[o + 2] = before.data[o + 2]; cel.data[o + 3] = before.data[o + 3]; }
 }
 
 // ---------- tools ----------
@@ -361,18 +370,21 @@ function shapePoints(drag) {
 }
 function paintPoints(points, rgba, button = 0, size = ui.brush) {
   const cel = activeCel(), opts = { ...brushOpts(button), size };
-  for (const [x, y] of points) R.stampInk(cel, x, y, rgba, opts);
+  clippedToSel(() => { for (const [x, y] of points) R.stampInk(cel, x, y, rgba, opts); });
 }
 function erasePoints(points) {
   const cel = activeCel();
-  for (const [x, y] of points) for (const [tx, ty] of mirrored(x, y)) for (const [dx, dy] of R.brushOffsets(ui.brush, ui.brushShape)) {
+  clippedToSel(() => { for (const [x, y] of points) for (const [tx, ty] of mirrored(x, y)) for (const [dx, dy] of R.brushOffsets(ui.brush, ui.brushShape)) {
     const p = R.getPixel(cel, tx + dx, ty + dy);
     if (!p) continue;
     R.setPixel(cel, tx + dx, ty + dy, ui.opacity >= 255 ? R.TRANSPARENT : [p[0], p[1], p[2], Math.max(0, p[3] - ui.opacity)]);
-  }
+  } });
 }
 function blurPoints(points, base) {
   const cel = activeCel();
+  clippedToSel(() => blurPointsRaw(cel, points, base));
+}
+function blurPointsRaw(cel, points, base) {
   for (const [x, y] of points) for (const [dx, dy] of R.brushOffsets(ui.brush, ui.brushShape)) {
     const px = x + dx, py = y + dy;
     if (!inDoc(px, py)) continue;

@@ -197,6 +197,25 @@ test('marquee selection: move, commit, delete, add with Shift, wand and inverse'
   expect(await selHas(page, 5, 5)).toBe(true);
 });
 
+test('painting is clipped to the selection', async ({ page }) => {
+  await page.keyboard.press('m');
+  await dragPixels(page, 4, 4, 9, 9);
+  await page.keyboard.press('b');
+  await dragPixels(page, 0, 6, 31, 6); // pencil stroke across the whole row
+  expect(await pixel(page, 4, 6)).toEqual(CREAM);
+  expect(await pixel(page, 9, 6)).toEqual(CREAM);
+  expect(await pixel(page, 3, 6)).toEqual(T, 'outside the selection stays empty');
+  expect(await pixel(page, 20, 6)).toEqual(T);
+  await page.keyboard.press('u');
+  await page.locator('#opt-fill').check();
+  await dragPixels(page, 0, 0, 31, 31);
+  expect(await pixel(page, 0, 0)).toEqual(T, 'filled rectangle is clipped too');
+  expect(await pixel(page, 5, 5)).toEqual(CREAM);
+  await page.keyboard.press('e');
+  await clickPixel(page, 5, 5);
+  expect(await pixel(page, 5, 5)).toEqual(T, 'eraser works inside');
+});
+
 test('copy, paste and fill / stroke on a selection', async ({ page }) => {
   await page.keyboard.press('u');
   await page.locator('#opt-fill').check();
